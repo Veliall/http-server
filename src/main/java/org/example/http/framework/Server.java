@@ -123,12 +123,6 @@ public class Server {
         } catch (NoSuchMethodException e) {
             throw new HandlerRegistrationException(e);
         }
-//    final var map = routes.get(method);
-//    if (map != null) {
-//      map.put(path, handler);
-//      return;
-//    }
-//    routes.put(method, new HashMap<>(Map.of(path, handler)));
     }
 
     public void addArgumentResolver(HandlerMethodArgumentResolver... resolvers) {
@@ -193,7 +187,7 @@ public class Server {
 
                 if (pathAndQuery.length > 1) {
                     String[] queries = pathAndQuery[1].split("&");
-                    parse(query, queries);
+                    query.putAll(parse(queries));
                 }
 
 
@@ -239,7 +233,7 @@ public class Server {
                     String bodyByString = new String(body, StandardCharsets.UTF_8);
                     String[] bodyParts = bodyByString.split("&");
                     if (bodyParts.length > 1) {
-                        parse(form, bodyParts);
+                        form.putAll(parse(bodyParts));
                     }
                 }
 
@@ -308,7 +302,8 @@ public class Server {
         }
     }
 
-    private void parse(Map<String, List<String>> map, String[] strings) {
+    private Map<String, List<String>> parse(String[] strings) {
+        Map<String, List<String>> map = new HashMap<>();
         for (String part : strings) {
             String[] parts = part.split("=");
             if (map.containsKey(parts[0])) {
@@ -320,5 +315,6 @@ public class Server {
                 );
             }
         }
+        return map;
     }
 }
