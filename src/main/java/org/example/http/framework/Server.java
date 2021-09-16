@@ -144,8 +144,6 @@ public class Server {
                     }
                 }
             });
-            while (!stop) {
-            }
         } catch (IOException e) {
             throw new ServerException(e);
         }
