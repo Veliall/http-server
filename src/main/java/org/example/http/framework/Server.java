@@ -14,6 +14,7 @@ import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -28,6 +29,7 @@ public class Server {
     private static final byte[] CRLFCRLF = new byte[]{'\r', '\n', '\r', '\n'};
     private final static int headersLimit = 4096;
     private final static long bodyLimit = 10 * 1024 * 1024;
+    private final ServerSocket serverSocket;
     private final ExecutorService service = Executors.newFixedThreadPool(64, r -> {
         final var thread = new Thread(r);
         thread.setDaemon(true);
@@ -78,8 +80,13 @@ public class Server {
     };
     private final List<HandlerMethodArgumentResolver> argumentResolvers = new ArrayList<>();
 
-    // state -> NOT_STARTED, STARTED, STOP, STOPPED
-    private volatile boolean stop = false;
+    public Server(int port) {
+        try {
+            this.serverSocket = new ServerSocket(port);
+        } catch (IOException e) {
+            throw new ServerException(e);
+        }
+    }
 
     public void get(String path, Handler handler) {
         registerHandler(HttpMethods.GET, path, handler);
@@ -129,28 +136,25 @@ public class Server {
         argumentResolvers.addAll(List.of(resolvers));
     }
 
-    public void listen(int port) {
-        try (
-                final var serverSocket = new ServerSocket(port)
-        ) {
+    public void listen() {
+        try {
             log.log(Level.INFO, "server started at port: " + serverSocket.getLocalPort());
-            service.submit(() -> {
-                while (!stop) {
-                    try {
-                        final var socket = serverSocket.accept();
-                        service.submit(() -> handle(socket));
-                    } catch (IOException e) {
-                        throw new ServerException(e);
-                    }
-                }
-            });
+
+            while (true) {
+                Socket socket = serverSocket.accept();
+                service.submit(() -> handle(socket));
+            }
+
+        } catch (SocketException e) {
+            log.log(Level.INFO, "Server has been stopped");
+
         } catch (IOException e) {
             throw new ServerException(e);
         }
     }
 
-    public void stop() {
-        stop = true;
+    public void stop() throws IOException {
+        serverSocket.close();
         service.shutdownNow();
     }
 
